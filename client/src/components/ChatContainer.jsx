@@ -38,10 +38,25 @@ const ChatContainer = () => {
     reader.readAsDataURL(file);
   };
 
+  // useEffect(() => {
+  //   if (selectedUser) {
+  //     getMessages(selectedUser._id);
+  //   }
+  // }, [selectedUser]);
+
   useEffect(() => {
-    if (selectedUser) {
-      getMessages(selectedUser._id);
-    }
+    console.log("Selected User:", selectedUser); // ✅ Debug selectedUser
+    const fetchMessages = async () => {
+      try {
+        if (selectedUser?._id) {
+          await getMessages(selectedUser._id);
+        }
+      } catch (err) {
+        console.error("getMessages error:", err);
+        toast.error("Failed to load messages.");
+      }
+    };
+    fetchMessages();
   }, [selectedUser]);
 
   useEffect(() => {
@@ -55,12 +70,14 @@ const ChatContainer = () => {
       {/* {header} */}
       <div className="flex items-center gap-3 py-3 mx-4 border-b border-stone-500">
         <img
-          src={selectedUser.profilePicture || assets.avatar_icon}
+          src={selectedUser?.profilePicture || assets.avatar_icon}
           alt=""
           className="w-8 rounded-full"
         />
         <p className="flex-1 tex-lg text-white flex items-center gap-2">
-          {selectedUser.fullName}
+          {/* {selectedUser?.fullName} */}
+          {selectedUser?.fullName || "User"}
+
           {onlineUsers.includes(selectedUser._id) && (
             <span className="w-2 h-2 rounded-full bg-green-500"></span>
           )}
@@ -75,7 +92,7 @@ const ChatContainer = () => {
       </div>
       {/* {chat messages} */}
       <div className="flex flex-col h-[calc(100%-120px)] overflow-y-scroll p-3 pb-6">
-        {messages.map((msg, index) => (
+        {(messages || []).map((msg, index) => (
           <div
             key={index}
             className={`flex items-end gap-2 justify-end ${

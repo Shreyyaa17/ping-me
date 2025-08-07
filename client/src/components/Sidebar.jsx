@@ -75,8 +75,38 @@ const Sidebar = () => {
       <div className="flex flex-col">
         {filteredUsers.map((user, index) => (
           <div
+            // onClick={() => {
+            //   setSelectedUser(user);
+            //   setUnseenMessages((prev) => ({ ...prev, [user._id]: 0 }));
+            // }}
+            // onClick={() => {
+            //   if (!user._id) {
+            //     console.error("Selected user has no _id:", user);
+            //     return;
+            //   }
+            //   setSelectedUser({
+            //     ...user,
+            //     profilePicture: user.profilePicture || user.profilePic || "", // ensures consistency
+            //   });
+            //   setUnseenMessages((prev) => ({ ...prev, [user._id]: 0 }));
+            // }}
+
             onClick={() => {
-              setSelectedUser(user);
+              console.log("Clicked user:", user); // <== See what data it contains
+              if (!user._id) {
+                console.error("User has no _id! Skipping.");
+                return;
+              }
+
+              // Normalize key
+              const normalizedUser = {
+                ...user,
+                profilePicture: user.profilePicture || user.profilePic || "",
+                fullName: user.fullName || "Unknown",
+                bio: user.bio || "No bio",
+              };
+
+              setSelectedUser(normalizedUser);
               setUnseenMessages((prev) => ({ ...prev, [user._id]: 0 }));
             }}
             key={index}
@@ -85,7 +115,7 @@ const Sidebar = () => {
             }`}
           >
             <img
-              src={user?.profilePic || assets.avatar_icon}
+              src={user?.profilePicture || assets.avatar_icon}
               alt=""
               className="w-[35px] aspect-[1/1] rounded-full"
             />

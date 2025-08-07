@@ -2,6 +2,7 @@ import React, { useContext, useState, useEffect } from "react";
 import { imagesDummyData } from "../assets/assets";
 import { ChatContext } from "../../context/ChatContext";
 import { AuthContext } from "../../context/AuthContext";
+import assets from "../assets/assets";
 
 const RightSidebar = () => {
   const { selectedUser, messages } = useContext(ChatContext);
@@ -22,7 +23,7 @@ const RightSidebar = () => {
       >
         <div className="pt-16 flex flex-col items-center gap-2 text-xs font-light mx-auto">
           <img
-            src={selectedUser?.profilePicture || assets.avator_icon}
+            src={selectedUser?.profilePicture || assets.avatar_icon}
             alt=""
             className="w-20 aspect-[1/1] rounded-full"
           />
@@ -30,7 +31,7 @@ const RightSidebar = () => {
             {onlineUsers.includes(selectedUser._id) && (
               <p className="w-2 h-2 rounded-full bg-green-500"></p>
             )}
-            {selectedUser.fullName}
+            {selectedUser?.fullName ? selectedUser.fullName : "User"}
           </h1>
           <p className="px-10 mx-auto">{selectedUser.bio}</p>
         </div>
@@ -53,7 +54,7 @@ const RightSidebar = () => {
 
         <button
           onClick={() => logout()}
-          className="absolute bottom-5 left-1/2 transform -translate-x-1/2 bg-gradient-to-r from-purple-400 toviolet-600 text-white border-none text-sm font-light py-2 px-20 rounded-full cursor-pointer"
+          className="absolute bottom-5 left-1/2 transform -translate-x-1/2 bg-gradient-to-r from-purple-400 to violet-600 text-white border-none text-sm font-light py-2 px-20 rounded-full cursor-pointer"
         >
           Logout
         </button>
