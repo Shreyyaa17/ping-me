@@ -61,5 +61,10 @@ if(process.env.NODE_ENV !== "production"){
     console.log(`Server is running on port ${PORT}`));
 }
 
+app.get("/", (req, res) => {
+  res.send("PingMe backend is live!");
+});
+
+
 //export server for vercel
 export default server;
