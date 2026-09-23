@@ -8,6 +8,7 @@ const RightSidebar = () => {
   const { selectedUser, messages } = useContext(ChatContext);
   const { logout, onlineUsers } = useContext(AuthContext);
   const [msgImages, setMsgImages] = useState([]);
+  const [previewImage, setPreviewImage] = useState(null);
 
   //get all the images from the messages and set them to state
   useEffect(() => {
@@ -21,6 +22,18 @@ const RightSidebar = () => {
           selectedUser ? "max-md:hidden" : ""
         }`}
       >
+        {previewImage && (
+          <div
+            onClick={() => setPreviewImage(null)}
+            className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4 cursor-pointer"
+          >
+            <img
+              src={previewImage}
+              alt="Preview"
+              className="max-w-[90vw] max-h-[85vh] rounded-lg object-contain"
+            />
+          </div>
+        )}
         <div className="pt-16 flex flex-col items-center gap-2 text-xs font-light mx-auto">
           <img
             src={selectedUser?.profilePicture || assets.avatar_icon}
@@ -43,7 +56,7 @@ const RightSidebar = () => {
             {msgImages.map((url, index) => (
               <div
                 key={index}
-                onClick={() => window.open(url)}
+                onClick={() => setPreviewImage(url)}
                 className="cursor-pointer rounded"
               >
                 <img src={url} alt="" className="h-full rounded-md" />

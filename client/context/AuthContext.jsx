@@ -3,8 +3,9 @@ import axios from "axios";
 import toast from "react-hot-toast";
 import { io } from "socket.io-client";
 
-const backendUrl = import.meta.env.VITE_BACKEND_URL;
-axios.defaults.baseURL = backendUrl;
+// In fullstack AI Studio environment, frontend and backend share the same origin.
+// All requests (/api/...) and WebSockets route directly to our local server.
+const backendUrl = "";
 export const AuthContext = createContext();
 
 export const AuthProvider = ({ children }) => {
@@ -15,14 +16,26 @@ export const AuthProvider = ({ children }) => {
 
   //check if user is authenticated and if so, set the user data and connect the socket
   const checkAuth = async () => {
+    const savedToken = localStorage.getItem("token");
+    if (!savedToken) {
+      setAuthUser(null);
+      return;
+    }
     try {
+      axios.defaults.headers.common["token"] = savedToken;
       const { data } = await axios.get("/api/auth/check");
-      if (data.success) {
+      if (data.success && data.user) {
         setAuthUser(data.user);
         connectSocket(data.user);
+      } else {
+        localStorage.removeItem("token");
+        setToken(null);
+        setAuthUser(null);
       }
-    } catch (error) {
-      toast.error(error.message);
+    } catch {
+      localStorage.removeItem("token");
+      setToken(null);
+      setAuthUser(null);
     }
   };
 
@@ -38,10 +51,11 @@ export const AuthProvider = ({ children }) => {
         localStorage.setItem("token", data.token);
         toast.success(data.message);
       } else {
-        toast.error(data.message);
+        toast.error(data.message || "Authentication failed");
       }
     } catch (error) {
-      toast.error(error.message);
+      const errMsg = error.response?.data?.message || error.message;
+      toast.error(errMsg);
     }
   };
 
@@ -51,28 +65,34 @@ export const AuthProvider = ({ children }) => {
     setToken(null);
     setAuthUser(null);
     setOnlineUsers([]);
-    axios.defaults.headers.common["token"] = null;
+    delete axios.defaults.headers.common["token"];
     toast.success("Logged out successfully");
-    socket.disconnect();
+    if (socket) {
+      socket.disconnect();
+      setSocket(null);
+    }
   };
 
   //update user profile
   const updateProfile = async (body) => {
     try {
       const { data } = await axios.put("/api/auth/update-profile", body);
-      if (data.success) {
-        setAuthUser(data.user);
+      if (data.success && (data.user || data.userData)) {
+        setAuthUser(data.user || data.userData);
         toast.success("Profile updated successfully");
+      } else {
+        toast.error(data.message || "Failed to update profile");
       }
     } catch (error) {
-      toast.error(error.message);
+      const errMsg = error.response?.data?.message || error.message;
+      toast.error(errMsg);
     }
   };
 
   //connect socket function to handle socket connection & online users updates
   const connectSocket = (userData) => {
     if (!userData || socket?.connected) return;
-    const newSocket = io(backendUrl, {
+    const newSocket = io(backendUrl || undefined, {
       query: {
         userId: userData._id,
       },

@@ -1,0 +1,7 @@
+{
+  "name": "PingMe",
+  "description": "Real-time chat and messaging application with instant messaging, media sharing, and online status tracking.",
+  "capabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}

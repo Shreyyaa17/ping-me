@@ -1,105 +1,10 @@
-// import User from "../models/User.js";
-// import Message from "../models/Message.js";
-// import cloudinary from "../lib/cloudinary.js";
-// import { io, userSocketMap } from "../server.js" 
-
-// //get all users except the looged in user
-// export const getUsersForSidebar = async (req, res) => {
-//   try{
-//     const userId = req.user._id; // Assuming user ID is stored in req.user
-//     const filteredUsers = await User.find({ _id: { $ne: userId } }).select("-password");
-
-//     //count no. of msgs not seen
-//     const unseenMessages ={};
-//     const promises = filteredUsers.map(async (user) => {
-//       const messages = await Message.find({senderId: user._id, receiverId: userId, seen: false});
-//       if(messages.length > 0) {
-//         unseenMessages[user._id] = messages.length;
-//       }
-//     })
-//     await Promise.all(promises);
-//     res.json({ success: true, users: filteredUsers, unseenMessages });
-
-//   } catch (error) {
-//     console.log(error.message);
-//     res.json({ success: false, message: error.message });
-//   }
-// }
-
-// //get all messages between two users
-// export const getMessages = async (req, res) => {
-//   try {
-//     const { id: selectedUserId } = req.params; // Assuming selectedUserId is passed as a URL parameter
-//     const myId = req.user._id; // Assuming user ID is stored in req.user
-
-//     const messages = await Message.find({
-//       $or: [
-//         { senderId: myId, receiverId: selectedUserId },
-//         { senderId: selectedUserId, receiverId: myId }
-//       ]
-//     })
-//     await Message.updateMany({senderId: selectedUserId, receiverId: myId}, {seen: true});
-
-//     res.json({ success: true, messages });
-//   } catch (error) {
-//     console.log(error.message);
-//     res.json({ success: false, message: error.message });
-//   }
-// }
-
-
-// //api to mark all messages between two users as seen
-// export const markMessagesAsSeen = async (req, res) => {
-//   try {
-//     const { id } = req.params; 
-
-//     await Message.findByIdAndUpdate(id, { seen: true });
-
-//     res.json({ success: true });
-//   } catch (error) {
-//     console.log(error.message);
-//     res.json({ success: false, message: error.message });
-//   }
-// }
-
-// //api to send message
-// export const sendMessage = async (req, res) => {
-//   try {
-//     const { text, image }  = req.body;
-//     const receiverId = req.params.id; // Assuming receiverId is passed as a URL parameter
-//     const senderId = req.user._id;
-
-//     let imageUrl;
-//     if (image) {
-//       const uploadResponse = await cloudinary.uploader.upload(image);
-//       imageUrl = uploadResponse.secure_url;
-//     }
-//     const newMessage = await Message.create({
-//       text,
-//       image: imageUrl,
-//       senderId,
-//       receiverId,
-//     });
-
-//     //emit the new msg to the reciever's socket
-//     const receiverSocketId = userSocketMap[receiverId];
-//     if(receiverSocketId){
-//       io.to(receiverSocketId).emit("newMessage", newMessage)
-//     }
-
-//     res.json({ success: true, newMessage });
-//   } catch (error) {
-//     console.log(error.message);
-//     res.json({ success: false, message: error.message });
-//   }
-// }
-
 import User from "../models/User.js";
 import Message from "../models/message.js";
 import cloudinary from "../lib/cloudinary.js";
 import { io, userSocketMap } from "../server.js";
+import { isDBConnected } from "../lib/db.js";
 
-// ✅ Get all users except logged-in user
+// Get all users except logged-in user
 export const getUsersForSidebar = async (req, res) => {
   try {
     const userId = req.user._id;
@@ -107,7 +12,7 @@ export const getUsersForSidebar = async (req, res) => {
 
     const unseenMessages = {};
     await Promise.all(
-      filteredUsers.map(async (user) => {
+      (filteredUsers || []).map(async (user) => {
         const count = await Message.countDocuments({
           senderId: user._id,
           receiverId: userId,
@@ -124,7 +29,7 @@ export const getUsersForSidebar = async (req, res) => {
   }
 };
 
-// ✅ Get messages between two users
+// Get messages between two users
 export const getMessages = async (req, res) => {
   try {
     const { id: selectedUserId } = req.params;
@@ -149,13 +54,22 @@ export const getMessages = async (req, res) => {
   }
 };
 
-// ✅ Mark all messages as seen from one user
+// Mark all messages as seen from one user
 export const markMessagesAsSeen = async (req, res) => {
   try {
-    const { id: senderId } = req.params;
+    const { id } = req.params;
     const receiverId = req.user._id;
 
-    await Message.updateMany({ senderId, receiverId, seen: false }, { seen: true });
+    await Message.updateMany(
+      {
+        $or: [
+          { senderId: id, receiverId, seen: false },
+          { _id: id, receiverId, seen: false },
+          { _id: id, seen: false }
+        ]
+      },
+      { seen: true }
+    );
 
     res.status(200).json({ success: true, message: "Messages marked as seen" });
   } catch (error) {
@@ -164,7 +78,7 @@ export const markMessagesAsSeen = async (req, res) => {
   }
 };
 
-// ✅ Send a message
+// Send a message
 export const sendMessage = async (req, res) => {
   try {
     const { text, image } = req.body;
@@ -173,20 +87,70 @@ export const sendMessage = async (req, res) => {
 
     let imageUrl = null;
     if (image) {
-      const uploadResponse = await cloudinary.uploader.upload(image, { folder: "chat_app" });
-      imageUrl = uploadResponse.secure_url;
+      if (process.env.CLOUDINARY_API_KEY && process.env.CLOUDINARY_CLOUD_NAME) {
+        try {
+          const uploadResponse = await cloudinary.uploader.upload(image, { folder: "chat_app" });
+          imageUrl = uploadResponse.secure_url;
+        } catch (uploadErr) {
+          console.warn("Cloudinary upload failed, using direct image data:", uploadErr.message);
+          imageUrl = image;
+        }
+      } else {
+        imageUrl = image;
+      }
     }
 
     const newMessage = await Message.create({
       text,
       image: imageUrl,
       senderId,
-      receiverId
+      receiverId,
+      seen: false
     });
 
-    // 🔥 Emit socket event to receiver if online
-    const receiverSocketId = userSocketMap[receiverId];
-    if (receiverSocketId) io.to(receiverSocketId).emit("newMessage", newMessage);
+    // Emit socket event to receiver if online
+    if (io) {
+      const receiverSocketId = userSocketMap[receiverId];
+      if (receiverSocketId) {
+        io.to(receiverSocketId).emit("newMessage", newMessage);
+      }
+    }
+
+    // In demo mode (DB offline), if chatting with a dummy user, simulate a quick reply
+    if (!isDBConnected()) {
+      const dummyIds = [
+        "680f50aaf10f3cd28382ecf2",
+        "680f50e4f10f3cd28382ecf9",
+        "680f510af10f3cd28382ed01",
+        "680f5137f10f3cd28382ed10",
+        "680f516cf10f3cd28382ed11"
+      ];
+      if (dummyIds.includes(String(receiverId))) {
+        setTimeout(async () => {
+          const botReplies = [
+            "Hey! Thanks for pinging me, got your message!",
+            "Great to hear from you! PingMe is working smoothly.",
+            "Awesome! Everything is looking good here.",
+            "Hello! Let's catch up more later.",
+            "Received! Let me know if you need any help."
+          ];
+          const randomReply = botReplies[Math.floor(Math.random() * botReplies.length)];
+          const replyMsg = await Message.create({
+            text: randomReply,
+            image: null,
+            senderId: receiverId,
+            receiverId: senderId,
+            seen: false
+          });
+          if (io) {
+            const senderSocketId = userSocketMap[senderId];
+            if (senderSocketId) {
+              io.to(senderSocketId).emit("newMessage", replyMsg);
+            }
+          }
+        }, 1200);
+      }
+    }
 
     res.status(201).json({ success: true, newMessage });
   } catch (error) {

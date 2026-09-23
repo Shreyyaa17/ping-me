@@ -1,7 +1,9 @@
 import jwt from 'jsonwebtoken';
 
-//Function to generate JWT token
+const JWT_SECRET = process.env.JWT_SECRET || 'pingme-jwt-dev-secret-3000';
+
+// Function to generate JWT token
 export const generateToken = (userId) => {
-  const token = jwt.sign({userId }, process.env.JWT_SECRET);
-    return token;
-}
+  const token = jwt.sign({ userId }, JWT_SECRET, { expiresIn: '7d' });
+  return token;
+};
