@@ -103,7 +103,7 @@ if (!isProduction && process.env.NODE_ENV !== "test") {
 
     app.use(vite.middlewares);
 
-    app.use('*', async (req, res, next) => {
+    app.use(async (req, res, next) => {
       const url = req.originalUrl;
       if (url.startsWith('/api')) {
         return next();
@@ -123,8 +123,15 @@ if (!isProduction && process.env.NODE_ENV !== "test") {
   }
 } else if (fs.existsSync(distRoot)) {
   app.use(express.static(distRoot));
-  app.get('*', (req, res) => {
-    res.sendFile(path.resolve(distRoot, 'index.html'));
+  app.use((req, res, next) => {
+    if (req.originalUrl.startsWith('/api')) {
+      return next();
+    }
+    const indexPath = path.resolve(distRoot, 'index.html');
+    if (fs.existsSync(indexPath)) {
+      return res.sendFile(indexPath);
+    }
+    next();
   });
 }
 
